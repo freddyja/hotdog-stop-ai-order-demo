@@ -23,7 +23,10 @@ form button{font-size:17px;border:0;border-radius:24px;padding:0 16px;flex:none;
 <div id="log"></div>
 <div id="bar"><button id="cartBtn">🧾 Order summary</button><button id="menuBtn">📋 Menu</button><button id="reset">↺ Start over</button><button id="spk" type="button" aria-pressed="true" title="Spoken replies on/off">🔊</button></div>
 <form id="f"><button type="button" id="mic" title="Speak" hidden>🎤</button><input id="t" placeholder="e.g. a Chicago dog" autocomplete="off"><button>Send</button></form>
-<script>
+<script>const APP_VERSION="2026.10.23.1";
+async function checkVer(){try{const r=await fetch('version.json',{cache:'no-store'});if(!r.ok)return;const v=(await r.json()).version;if(v&&v!==APP_VERSION){const k='hds_reload_'+v;if(sessionStorage.getItem(k))return;sessionStorage.setItem(k,'1');location.reload()}}catch(e){}}
+checkVer();document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkVer()});
+
 const API=(location.hostname.endsWith('vercel.app')||location.hostname==='localhost')?'api/chat':'https://hotdog-stop-ai-order-demo.vercel.app/api/chat';
 let cart=[],pending=null,history=[];const log=document.getElementById('log');
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));

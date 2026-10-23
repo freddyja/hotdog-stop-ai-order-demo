@@ -1,1 +1,1 @@
-{"outputDirectory":"public","headers":[{"source":"/(.*)","headers":[{"key":"X-Robots-Tag","value":"noindex, nofollow"}]}]}
+{"outputDirectory":"public","headers":[{"source":"/(.*)","headers":[{"key":"X-Robots-Tag","value":"noindex, nofollow"}]},{"source":"/","headers":[{"key":"Cache-Control","value":"no-cache, must-revalidate"}]},{"source":"/index.html","headers":[{"key":"Cache-Control","value":"no-cache, must-revalidate"}]},{"source":"/version.json","headers":[{"key":"Cache-Control","value":"no-store"}]}]}
