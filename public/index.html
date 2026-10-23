@@ -23,7 +23,7 @@ form button{font-size:17px;border:0;border-radius:24px;padding:0 16px;flex:none;
 <div id="log"></div>
 <div id="bar"><button id="cartBtn">🧾 Order summary</button><button id="menuBtn">📋 Menu</button><button id="reset">↺ Start over</button><button id="spk" type="button" aria-pressed="true" title="Spoken replies on/off">🔊</button></div>
 <div id="lis" hidden><span class="pm">🎤</span> Listening… just say your answer</div><div id="mhint" hidden>Allow the microphone so you can just talk</div><form id="f"><button type="button" id="mic" title="Tap to talk" hidden>🎤 Tap to talk</button><input id="t" placeholder="e.g. a Chicago dog" autocomplete="off"><button>Send</button></form>
-<script>const APP_VERSION="2026.10.23.2";
+<script>const APP_VERSION="2026.10.23.3";
 async function checkVer(){try{const r=await fetch('version.json',{cache:'no-store'});if(!r.ok)return;const v=(await r.json()).version;if(v&&v!==APP_VERSION){const k='hds_reload_'+v;if(sessionStorage.getItem(k))return;sessionStorage.setItem(k,'1');location.reload()}}catch(e){}}
 checkVer();document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkVer()});
 
@@ -35,7 +35,7 @@ function add(text,cls,chips){const d=document.createElement('div');d.className='
 function showMenu(g){const d=document.createElement('div');d.className='sum menu';
  d.innerHTML='<b>Full menu</b>'+g.map(c=>`<div style="margin-top:8px;font-weight:700">${esc(c.cat)}</div>`+c.items.map(i=>`<button class="mi" data-n="${esc(i.name)}" style="display:flex;justify-content:space-between;width:100%;text-align:left;border:1px solid #eee;background:#fff;border-radius:8px;padding:6px 8px;margin:3px 0;font:inherit;cursor:pointer"><span>${esc(i.name)}${i.desc?'<br><small>'+esc(i.desc)+'</small>':''}</span><span>${i.price==null?'<span class="warn">price not listed</span>':'$'+i.price.toFixed(2)}</span></button>`).join('')).join('');
  d.querySelectorAll('.mi').forEach(b=>b.onclick=()=>send('1 '+b.dataset.n));log.append(d);log.scrollTop=1e9}
-function showSum(s){summaryDone=true;const d=document.createElement('div');d.className='sum';
+function showSum(s){summaryDone=true;if(window.hdsEndSession)hdsEndSession();const d=document.createElement('div');d.className='sum';
  d.innerHTML='<b>Order summary (DEMO — not sent anywhere)</b><table>'+(s.lines.length?s.lines.map((l,i)=>`<tr><td>${i+1}. ${l.qty} × ${esc(l.name)}${l.toppings.length?'<br><small>'+esc(l.toppings.join(', '))+'</small>':''}${l.drink?'<br><small>Drink: '+esc(l.drink)+'</small>':''}${l.note?'<br><span class="warn">'+esc(l.note)+'</span>':''}</td><td>${l.total==null?'<span class="warn">price not listed</span>':'$'+l.total.toFixed(2)}</td></tr>`).join(''):'<tr><td>Cart is empty</td><td></td></tr>')
  +`<tr class="tot"><td>Total${s.incomplete?' (excl. unlisted prices)':''}</td><td>$${s.total.toFixed(2)}</td></tr></table><small>Prices from the public menu; tax not included. This is a demo — no order is placed.</small>`;log.append(d);log.scrollTop=1e9}
 async function send(msg,opts={}){if(!msg.trim())return;sentAny=true;summaryDone=false;add(msg,'me');
@@ -61,20 +61,32 @@ function unlockTTS(){if(!TTS||ttsUnlocked)return;ttsUnlocked=true;try{const u=ne
 function speechText(t){return String(t).replace(/\+\s?\$/g,'plus $').replace(/\$(\d+)(?:\.(\d\d))?/g,(m,d,c)=>d+' dollar'+(d==='1'?'':'s')+(c&&c!=='00'?' '+(+c):''))
  .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu,'').replace(/[*_`#>~]/g,'').replace(/\s×\s/g,' ').replace(/\s+/g,' ').trim()}
 function speak(text,after){if(!TTS||!ttsOn||!ttsUnlocked){after&&after();return}TTS.cancel();if(!voice)pickVoice();
- const u=new SpeechSynthesisUtterance(speechText(text));u.lang='en-US';if(voice)u.voice=voice;u.rate=1.05;let fired=false;const done=()=>{if(!fired){fired=true;after&&after()}};
+ if(window.hdsPauseRec)hdsPauseRec();
+ const u=new SpeechSynthesisUtterance(speechText(text));u.lang='en-US';if(voice)u.voice=voice;u.rate=1.05;let fired=false,fb=null;const done=()=>{if(!fired){fired=true;clearTimeout(fb);if(window.hdsResumeRec)hdsResumeRec();after&&after()}};
+ fb=setTimeout(done,Math.min(30000,2500+speechText(text).length*90));
  u.onend=done;u.onerror=done;TTS.speak(u);if(TTS.paused)TTS.resume()}
-spk.onclick=()=>{ttsOn=!ttsOn;localStorage.setItem('hds_tts',ttsOn?'on':'off');paintSpk();if(!ttsOn&&TTS)TTS.cancel()};
+spk.onclick=()=>{ttsOn=!ttsOn;localStorage.setItem('hds_tts',ttsOn?'on':'off');paintSpk();if(!ttsOn&&TTS){TTS.cancel();if(window.hdsResumeRec)hdsResumeRec()}};
 window.hdsSpeak=speak;window.hdsSpeechText=speechText;
-// ---- voice input + hands-free loop ----
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let listen=null,listening=false,summaryDone=false;
-function autoListen(){if(listen&&ttsOn&&!summaryDone)listen()}
-if(SR){const mic=document.getElementById('mic'),lis=document.getElementById('lis'),hint=document.getElementById('mhint');mic.hidden=false;const rec=new SR();rec.lang='en-US';rec.interimResults=false;
- const ui=on=>{listening=on;lis.hidden=!on;mic.hidden=on};
- rec.onstart=()=>{ui(true)};rec.onend=()=>{ui(false)};
- rec.onerror=e=>{ui(false);if(e&&(e.error==='not-allowed'||e.error==='service-not-allowed'))hint.hidden=false};
- rec.onresult=e=>{hint.hidden=true;send(e.results[0][0].transcript,{voice:true})};
- listen=async()=>{if(listening)return;try{if(navigator.permissions){const p=await navigator.permissions.query({name:'microphone'});if(p.state==='prompt')hint.hidden=false;else if(p.state==='granted')hint.hidden=true}}catch(e){}
-  try{rec.start()}catch(e){}};
- document.getElementById('t').addEventListener('focus',()=>{if(listening)try{rec.abort()}catch(e){}});
- mic.onclick=()=>{if(TTS)TTS.cancel();summaryDone=false;listen()}}
+// ---- voice input: continuous listening session (tap mic once; tap again to stop) ----
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let listen=null,listening=false,summaryDone=false,session=false,recPaused=false;
+function autoListen(){if(listen&&ttsOn&&!summaryDone&&!session)listen()}
+if(SR){const mic=document.getElementById('mic'),lis=document.getElementById('lis'),hint=document.getElementById('mhint');mic.hidden=false;const rec=new SR();rec.lang='en-US';rec.interimResults=false;rec.continuous=true;rec.maxAlternatives=1;
+ let restartT=null,lastFinal='',lastFinalAt=0,running=false;
+ const ui=()=>{listening=session;lis.hidden=!session;lis.innerHTML=session?(recPaused?'<span class="pm">🔈</span> Speaking… I\'ll keep listening after':'<span class="pm">🎤</span> Listening… just talk — tap 🛑 to stop'):'';mic.textContent=session?'🛑 Tap to stop':'🎤 Tap to talk';mic.title=session?'Tap to stop listening':'Tap to talk';mic.setAttribute('aria-pressed',session)};
+ const startRec=()=>{clearTimeout(restartT);if(!session||recPaused||running||document.visibilityState==='hidden')return;try{rec.start();running=true}catch(e){}};
+ const schedule=(ms)=>{clearTimeout(restartT);restartT=setTimeout(startRec,ms||250)};
+ const stopRec=()=>{clearTimeout(restartT);try{rec.abort()}catch(e){}};
+ window.hdsEndSession=()=>{session=false;recPaused=false;stopRec();ui()};
+ window.hdsPauseRec=()=>{if(!session)return;recPaused=true;stopRec();ui()};
+ window.hdsResumeRec=()=>{if(!recPaused)return;recPaused=false;ui();if(session)schedule(300)};
+ rec.onstart=()=>{running=true;ui()};
+ rec.onend=()=>{running=false;if(session&&!recPaused)schedule(250);else ui()};
+ rec.onerror=e=>{const er=e&&e.error;if(er==='not-allowed'||er==='service-not-allowed'){hint.hidden=false;hdsEndSession();return}/* no-speech, aborted, network etc: onend restarts */};
+ rec.onresult=e=>{hint.hidden=true;for(let i=e.resultIndex;i<e.results.length;i++){const r=e.results[i];if(!r.isFinal)continue;const t=(r[0].transcript||'').trim();if(!t)continue;const now=Date.now();if(t.toLowerCase()===lastFinal&&now-lastFinalAt<4000)continue;lastFinal=t.toLowerCase();lastFinalAt=now;if(recPaused||(TTS&&TTS.speaking&&ttsOn))continue;send(t,{voice:true})}};
+ listen=async()=>{if(session)return;try{if(navigator.permissions){const p=await navigator.permissions.query({name:'microphone'});if(p.state==='prompt')hint.hidden=false;else if(p.state==='granted')hint.hidden=true}}catch(e){}
+  session=true;recPaused=!!(TTS&&ttsOn&&TTS.speaking);ui();startRec()};
+ document.getElementById('t').addEventListener('focus',()=>{if(session)hdsEndSession()});
+ document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&session)hdsEndSession()});
+ document.getElementById('reset').addEventListener('click',()=>{if(session)hdsEndSession()});
+ mic.onclick=()=>{if(session){hdsEndSession();return}if(TTS)TTS.cancel();summaryDone=false;listen()}}
 </script></body></html>
