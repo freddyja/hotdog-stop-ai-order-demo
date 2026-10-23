@@ -21,7 +21,7 @@ form button{font-size:17px;border:0;border-radius:24px;padding:0 16px;flex:none;
 <div class="demo">⚠️ DEMO — not affiliated with The Hot Dog Stop · not a real order · no payment</div>
 <header><img src="icon-192.png" alt=""><div><h1>The Hot Dog Stop</h1><small>AI ordering demo · Brooksville, FL</small></div><span id="mode">…</span></header>
 <div id="log"></div>
-<div id="bar"><button id="cartBtn">🧾 Order summary</button><button id="menuBtn">📋 Menu</button><button id="reset">↺ Start over</button></div>
+<div id="bar"><button id="cartBtn">🧾 Order summary</button><button id="menuBtn">📋 Menu</button><button id="reset">↺ Start over</button><button id="spk" type="button" aria-pressed="true" title="Spoken replies on/off">🔊</button></div>
 <form id="f"><button type="button" id="mic" title="Speak" hidden>🎤</button><input id="t" placeholder="e.g. a Chicago dog" autocomplete="off"><button>Send</button></form>
 <script>
 const API=(location.hostname.endsWith('vercel.app')||location.hostname==='localhost')?'api/chat':'https://hotdog-stop-ai-order-demo.vercel.app/api/chat';
@@ -39,12 +39,31 @@ async function send(msg,opts={}){if(!msg.trim())return;add(msg,'me');
  try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,cart,pending,history})});const j=await r.json();
  cart=j.cart;pending=j.pending;history.push({role:'user',content:msg},{role:'assistant',content:j.reply});
  if(j.mode==='ai'||j.mode==='fallback')document.getElementById('mode').textContent=j.mode==='ai'?'AI':'Basic mode';add(j.reply,'bot',j.chips);if(j.menuCard)showMenu(j.menuCard);if(j.showSummary)showSum(j.summary);
+ speak(j.menuCard?'Here is our full menu. Tap any item, or tell me what you would like.':j.reply,opts.voice&&!j.showSummary&&listen?listen:null);
  }catch(e){add('Connection problem — please try again.','bot')}}
 document.getElementById('f').onsubmit=e=>{e.preventDefault();const t=document.getElementById('t');send(t.value);t.value=''};
 document.getElementById('cartBtn').onclick=()=>send('done');document.getElementById('menuBtn').onclick=()=>send('menu');
 document.getElementById('reset').onclick=()=>{cart=[];pending=null;history=[];log.innerHTML='';hello()};
 function hello(){add("Hi! Welcome to The Hot Dog Stop 🌭 (demo). What can I get you? Try a Chicago dog, a New York Sabrett dog, or a combo special.",'bot',['Chicago dog','New York dog','New York Special','Fries','Menu'])}
 hello();
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(SR){const mic=document.getElementById('mic');mic.hidden=false;const rec=new SR();rec.lang='en-US';
- rec.onresult=e=>send(e.results[0][0].transcript);mic.onclick=()=>{try{rec.start()}catch(e){}}}
-</script></body></html>
+// ---- spoken replies (browser speechSynthesis, free) ----
+const TTS=window.speechSynthesis||null;let ttsOn=localStorage.getItem('hds_tts')!=='off',ttsUnlocked=false,voice=null;
+const spk=document.getElementById('spk');function paintSpk(){spk.textContent=ttsOn?'🔊':'🔇';spk.setAttribute('aria-pressed',ttsOn)}paintSpk();if(!TTS)spk.hidden=true;
+function pickVoice(){if(!TTS)return;const v=TTS.getVoices();voice=v.find(x=>x.lang==='en-US'&&/samantha|google us|aria|jenny/i.test(x.name))||v.find(x=>x.lang==='en-US')||v.find(x=>/^en/i.test(x.lang))||null}
+if(TTS){pickVoice();TTS.onvoiceschanged=pickVoice;if(TTS.addEventListener)TTS.addEventListener('voiceschanged',pickVoice)}
+function unlockTTS(){if(!TTS||ttsUnlocked)return;ttsUnlocked=true;try{const u=new SpeechSynthesisUtterance('');u.volume=0;TTS.speak(u)}catch(e){}}
+['pointerdown','touchend','keydown','click'].forEach(ev=>document.addEventListener(ev,unlockTTS,{capture:true}));
+function speechText(t){return String(t).replace(/\+\s?\$/g,'plus $').replace(/\$(\d+)(?:\.(\d\d))?/g,(m,d,c)=>d+' dollar'+(d==='1'?'':'s')+(c&&c!=='00'?' '+(+c):''))
+ .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu,'').replace(/[*_`#>~]/g,'').replace(/\s×\s/g,' ').replace(/\s+/g,' ').trim()}
+function speak(text,after){if(!TTS||!ttsOn||!ttsUnlocked){after&&after();return}TTS.cancel();if(!voice)pickVoice();
+ const u=new SpeechSynthesisUtterance(speechText(text));u.lang='en-US';if(voice)u.voice=voice;u.rate=1.05;let fired=false;const done=()=>{if(!fired){fired=true;after&&after()}};
+ u.onend=done;u.onerror=done;TTS.speak(u);if(TTS.paused)TTS.resume()}
+spk.onclick=()=>{ttsOn=!ttsOn;localStorage.setItem('hds_tts',ttsOn?'on':'off');paintSpk();if(!ttsOn&&TTS)TTS.cancel()};
+window.hdsSpeak=speak;window.hdsSpeechText=speechText;
+// ---- voice input + hands-free loop ----
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let listen=null;
+if(SR){const mic=document.getElementById('mic');mic.hidden=false;const rec=new SR();rec.lang='en-US';rec.interimResults=false;
+ rec.onresult=e=>send(e.results[0][0].transcript,{voice:true});
+ listen=()=>{try{rec.start()}catch(e){}};
+ mic.onclick=()=>{if(TTS)TTS.cancel();listen()}}
+</script></script></body></html>
