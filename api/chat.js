@@ -251,6 +251,7 @@ module.exports = async (req, res) => {
     catch (e) { note = String(e.message).slice(0, 120); cart.splice(0, cart.length, ...JSON.parse(before)); }
   }
   if (!out) { mode = 'fallback'; out = fallback(message, cart, pending); }
+  if (out.showSummary && cart.length) { const s = summary(cart); out.reply = `You got it! That's ${cart.map(l => lineText(l)).join(', ')}, $${s.total.toFixed(2)} total. Here's your order summary (demo, not a real order).`; }
   res.status(200).json({ reply: out.reply, cart, summary: summary(cart), pending: out.pending || null, chips: out.chips || null,
     showSummary: !!out.showSummary, mode, model: mode === 'ai' ? MODEL : null, note: mode === 'fallback' ? note || null : null, demo: true });
 };
