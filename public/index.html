@@ -11,7 +11,7 @@ header h1{font-size:19px;margin:0}header small{display:block;font-size:13px;opac
 #mode{margin-left:auto;font-size:12px;background:#fff;color:#c8102e;border-radius:12px;padding:3px 8px;font-weight:700}
 #log{flex:1;overflow:auto;padding:12px}.m{max-width:85%;padding:10px 13px;border-radius:16px;margin:6px 0;white-space:pre-wrap}
 .bot{background:#fff;border:1px solid #f0d9b5}.me{background:#c8102e;color:#fff;margin-left:auto}
-.chips{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}.chips button{border:2px solid #c8102e;background:#fff;color:#c8102e;border-radius:18px;padding:6px 12px;font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}.chips button.hot{background:#c8102e;color:#fff;animation:hp 1.4s ease-in-out infinite}@keyframes hp{0%,100%{box-shadow:0 0 0 0 rgba(200,16,46,.6)}50%{box-shadow:0 0 0 8px rgba(200,16,46,0)}}.chips button{border:2px solid #c8102e;background:#fff;color:#c8102e;border-radius:18px;padding:6px 12px;font-size:15px}
 .sum{background:#fff;border:2px solid #1a1a1a;border-radius:12px;padding:10px;margin:8px 0}.sum table{width:100%;border-collapse:collapse;font-size:15px}.sum td{padding:3px 0;vertical-align:top}.sum td:last-child{text-align:right;white-space:nowrap}
 .warn{color:#b00020;font-size:13px;font-weight:600}.tot{font-weight:800;border-top:2px solid #000}
 form{display:flex;box-sizing:border-box;width:100%;gap:8px;padding:10px;background:#fff;border-top:1px solid #ddd}form input{flex:1;min-width:0;width:100%;font-size:17px;padding:12px;border:2px solid #999;border-radius:24px}
@@ -35,7 +35,7 @@ function showMenu(g){const d=document.createElement('div');d.className='sum menu
 function showSum(s){const d=document.createElement('div');d.className='sum';
  d.innerHTML='<b>Order summary (DEMO — not sent anywhere)</b><table>'+(s.lines.length?s.lines.map((l,i)=>`<tr><td>${i+1}. ${l.qty} × ${esc(l.name)}${l.toppings.length?'<br><small>'+esc(l.toppings.join(', '))+'</small>':''}${l.drink?'<br><small>Drink: '+esc(l.drink)+'</small>':''}${l.note?'<br><span class="warn">'+esc(l.note)+'</span>':''}</td><td>${l.total==null?'<span class="warn">price not listed</span>':'$'+l.total.toFixed(2)}</td></tr>`).join(''):'<tr><td>Cart is empty</td><td></td></tr>')
  +`<tr class="tot"><td>Total${s.incomplete?' (excl. unlisted prices)':''}</td><td>$${s.total.toFixed(2)}</td></tr></table><small>Prices from the public menu; tax not included. This is a demo — no order is placed.</small>`;log.append(d);log.scrollTop=1e9}
-async function send(msg,opts={}){if(!msg.trim())return;add(msg,'me');
+async function send(msg,opts={}){if(!msg.trim())return;sentAny=true;add(msg,'me');
  try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,cart,pending,history})});const j=await r.json();
  cart=j.cart;pending=j.pending;history.push({role:'user',content:msg},{role:'assistant',content:j.reply});
  if(j.mode==='ai'||j.mode==='fallback')document.getElementById('mode').textContent=j.mode==='ai'?'AI':'Basic mode';add(j.reply,'bot',j.chips);if(j.menuCard)showMenu(j.menuCard);if(j.showSummary)showSum(j.summary);
@@ -44,14 +44,16 @@ async function send(msg,opts={}){if(!msg.trim())return;add(msg,'me');
 document.getElementById('f').onsubmit=e=>{e.preventDefault();const t=document.getElementById('t');send(t.value);t.value=''};
 document.getElementById('cartBtn').onclick=()=>send('done');document.getElementById('menuBtn').onclick=()=>send('menu');
 document.getElementById('reset').onclick=()=>{cart=[];pending=null;history=[];log.innerHTML='';hello()};
-function hello(){add("Hi! Welcome to The Hot Dog Stop 🌭 (demo). What can I get you? Try a Chicago dog, a New York Sabrett dog, or a combo special.",'bot',['Chicago dog','New York dog','New York Special','Fries','Menu'])}
+const WELCOME="Hi, welcome to The Hot Dog Stop! Tap Menu below to see everything we've got, then tap an item or just tell me what you'd like.";let sentAny=false;
+function hello(){add(WELCOME+' (demo)','bot',['Menu','Chicago dog','New York dog','New York Special','Fries']);const b=document.querySelector('.chips button');if(b){b.classList.add('hot');b.addEventListener('click',()=>document.querySelectorAll('.hot').forEach(x=>x.classList.remove('hot')))}
+ setTimeout(()=>{if(TTS&&ttsOn&&!sentAny){try{const u=new SpeechSynthesisUtterance(WELCOME);u.lang='en-US';if(voice)u.voice=voice;TTS.speak(u)}catch(e){}}},400)}
 hello();
 // ---- spoken replies (browser speechSynthesis, free) ----
 const TTS=window.speechSynthesis||null;let ttsOn=localStorage.getItem('hds_tts')!=='off',ttsUnlocked=false,voice=null;
 const spk=document.getElementById('spk');function paintSpk(){spk.textContent=ttsOn?'🔊':'🔇';spk.setAttribute('aria-pressed',ttsOn)}paintSpk();if(!TTS)spk.hidden=true;
 function pickVoice(){if(!TTS)return;const v=TTS.getVoices();voice=v.find(x=>x.lang==='en-US'&&/samantha|google us|aria|jenny/i.test(x.name))||v.find(x=>x.lang==='en-US')||v.find(x=>/^en/i.test(x.lang))||null}
 if(TTS){pickVoice();TTS.onvoiceschanged=pickVoice;if(TTS.addEventListener)TTS.addEventListener('voiceschanged',pickVoice)}
-function unlockTTS(){if(!TTS||ttsUnlocked)return;ttsUnlocked=true;try{const u=new SpeechSynthesisUtterance('');u.volume=0;TTS.speak(u)}catch(e){}}
+function unlockTTS(){if(!TTS||ttsUnlocked)return;ttsUnlocked=true;try{const u=new SpeechSynthesisUtterance('');u.volume=0;TTS.speak(u)}catch(e){}setTimeout(()=>{if(!sentAny&&!TTS.speaking)speak(WELCOME)},60);}
 ['pointerdown','touchend','keydown','click'].forEach(ev=>document.addEventListener(ev,unlockTTS,{capture:true}));
 function speechText(t){return String(t).replace(/\+\s?\$/g,'plus $').replace(/\$(\d+)(?:\.(\d\d))?/g,(m,d,c)=>d+' dollar'+(d==='1'?'':'s')+(c&&c!=='00'?' '+(+c):''))
  .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu,'').replace(/[*_`#>~]/g,'').replace(/\s×\s/g,' ').replace(/\s+/g,' ').trim()}
@@ -66,4 +68,4 @@ if(SR){const mic=document.getElementById('mic');mic.hidden=false;const rec=new S
  rec.onresult=e=>send(e.results[0][0].transcript,{voice:true});
  listen=()=>{try{rec.start()}catch(e){}};
  mic.onclick=()=>{if(TTS)TTS.cancel();listen()}}
-</script></script></body></html>
+</script></body></html>
