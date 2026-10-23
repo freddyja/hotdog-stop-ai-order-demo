@@ -76,9 +76,9 @@ function sanitizeCart(c) {
 const ALIASES = [
   [/chicago special 2|2 chicago special|two chicago special/, 'combo_chi2'], [/chicago special|chicago combo/, 'combo_chi'],
   [/new york special 2|ny special 2|2 (ny|new york) special/, 'combo_ny2'], [/(new york|ny) (special|combo)/, 'combo_ny'],
-  [/kielbasa (special )?2|2 kielbasa special/, 'combo_kiel2'], [/kielbasa (special|combo)/, 'combo_kiel'],
+  [/kielbasa (special )?2\b|2 kielbasa special/, 'combo_kiel2'], [/kielbasa (special|combo)/, 'combo_kiel'],
   [/nathan( jumbo)? 2/, 'combo_nathan2'], [/nathan( jumbo)? (combo|special)/, 'combo_nathan'],
-  [/beef/, 'combo_beef'], [/sausage (sandwich|combo)/, 'combo_sausage'],
+  [/italian beef sandwich \(single\)|single (italian )?beef/, 'italian_beef'], [/italian beef|beef sandwich/, 'combo_beef'], [/sausage (sandwich|combo)/, 'combo_sausage'],
   [/chicago/, 'chicago_dog'], [/(new york|ny|sabrett)/, 'ny_dog'], [/kielbasa|polish/, 'kielbasa'], [/nathan|jumbo dog/, 'nathan'],
   [/italian sausage|sausage/, 'italian_sausage'], [/corn ?dog/, 'corn_dog'], [/hot ?dog|frank|wiener/, 'ny_dog'],
   [/knish/, 'knish'], [/pizza/, 'pizza_puff'], [/tots/, 'tots'], [/fries/, 'fries'], [/pretzel/, 'pretzel'], [/curd/, 'curds'],
@@ -132,6 +132,7 @@ function fallback(msg, cart, pending) {
   if (pending) { addItem(cart, pending.item_id, [], pending.qty, pending.drink); kept = `I added your ${byId[pending.item_id].name} plain (say "add relish" etc. to change it). `; }
   return { reply: `${kept}${q} × ${it.name}${it.price != null ? ` ($${it.price.toFixed(2)} each)` : ' (price not listed)'}. What toppings would you like? ${optList(it.id)}. Or say "plain".${notListedMsg(it.id, bad)}`, pending: { item_id: it.id, qty: q, drink }, chips: allowed.map(a => a[1]).concat(['Plain']) };
 }
+function menuGroups() { const cats = []; for (const i of MENU.items) { let c = cats.find(x => x.cat === i.cat); if (!c) cats.push(c = { cat: i.cat, items: [] }); c.items.push({ id: i.id, name: i.name, price: i.price, desc: i.desc || null }); } return cats; }
 function menuText() {
   const cats = {}; MENU.items.forEach(i => (cats[i.cat] = cats[i.cat] || []).push(`${i.name} ${i.price == null ? '(price not listed)' : '$' + i.price.toFixed(2)}`));
   return Object.entries(cats).map(([c, l]) => `${c}: ${l.join('; ')}`).join('\n');
@@ -181,12 +182,14 @@ const weak = t => !t || t.trim().length < 12 || /^(ok|okay|sure|done|got it)[.!]
 async function ai(history, cart, key, pending) {
   if (!key) key = gwKey(); if (!key) throw new Error('no key');
   const msgs = [{ role: 'system', content: sysPrompt(cart, pending) }, ...history.slice(-14)];
-  let showSummary = false; const notes = []; let addedAny = false;
+  let showSummary = false; const notes = []; let addedAny = false; let retried = false;
+  const toppingOnly = !itemHit(String(history[history.length - 1].content).toLowerCase()) && !pending;
   for (let step = 0; step < 5; step++) {
     const r = await fetch('https://ai-gateway.vercel.sh/v1/chat/completions', { method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: MODEL, messages: msgs, tools: TOOLS, temperature: 0.2, max_tokens: 400 }),
       signal: AbortSignal.timeout(15000) });
+    if (r.status === 429 && !retried) { retried = true; step--; await new Promise(z => setTimeout(z, 1500)); continue; }
     if (!r.ok) throw new Error('gateway ' + r.status + ' ' + (await r.text()).slice(0, 200));
     const msg = (await r.json()).choices[0].message;
     if (!msg.tool_calls || !msg.tool_calls.length) return { reply: msg.content, showSummary, notes, addedAny };
@@ -195,7 +198,11 @@ async function ai(history, cart, key, pending) {
       let a = {}; try { a = JSON.parse(tc.function.arguments || '{}'); } catch {}
       if (tc.function.name === 'show_cart') showSummary = true;
       if (tc.function.name === 'add_item') addedAny = true;
-      const out = runTool(tc.function.name, a, cart, notes);
+      let name = tc.function.name;
+      // "chicago dog with relish" then "mustard, pickle..." -> update that dog instead of adding a second one
+      const last = cart[cart.length - 1];
+      if (name === 'add_item' && toppingOnly && last && last.item_id === a.item_id && (parseInt(a.qty) || 1) === last.qty) { name = 'update_toppings'; a = { add: a.toppings || [] }; }
+      const out = runTool(name, a, cart, notes);
       msgs.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify({ ...out, cart: summary(cart) }) });
     }
   }
@@ -220,6 +227,10 @@ module.exports = async (req, res) => {
   const history = (Array.isArray(b.history) ? b.history : []).filter(h => h && ['user', 'assistant'].includes(h.role)).map(h => ({ role: h.role, content: String(h.content).slice(0, 500) }));
   const pending = b.pending && byId[b.pending.item_id] ? { item_id: b.pending.item_id, qty: Math.max(1, Math.min(10, parseInt(b.pending.qty) || 1)), drink: MENU.drinks.includes(b.pending.drink) ? b.pending.drink : undefined } : null;
   let out, mode = 'ai', note;
+  if (/^\s*(show (me )?(the )?)?(full )?menu\??\s*$|^\s*what do you (have|sell)/i.test(message)) {
+    return res.status(200).json({ reply: 'Here is our full menu. Tap any item to start your order.' + (pending ? ` (Your ${byId[pending.item_id].name} is still waiting for toppings.)` : ''), cart, summary: summary(cart), pending,
+      chips: null, showSummary: false, mode: 'menu', menuCard: menuGroups(), model: null, note: null, demo: true });
+  }
   if (b.mode !== 'fallback') {
     const before = JSON.stringify(cart);
     try {
@@ -240,4 +251,4 @@ module.exports = async (req, res) => {
   res.status(200).json({ reply: out.reply, cart, summary: summary(cart), pending: out.pending || null, chips: out.chips || null,
     showSummary: !!out.showSummary, mode, model: mode === 'ai' ? MODEL : null, note: mode === 'fallback' ? note || null : null, demo: true });
 };
-module.exports._t = { fallback, addItem, summary, checkTops, runTool, inferPending, weak };
+module.exports._t = { menuGroups, fallback, addItem, summary, checkTops, runTool, inferPending, weak };

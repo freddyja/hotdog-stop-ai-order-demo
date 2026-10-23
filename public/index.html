@@ -29,13 +29,16 @@ let cart=[],pending=null,history=[];const log=document.getElementById('log');
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function add(text,cls,chips){const d=document.createElement('div');d.className='m '+cls;d.textContent=text;log.append(d);
  if(chips){const c=document.createElement('div');c.className='chips';chips.forEach(x=>{const b=document.createElement('button');b.textContent=x;b.onclick=()=>send(x);c.append(b)});log.append(c)}log.scrollTop=1e9}
+function showMenu(g){const d=document.createElement('div');d.className='sum menu';
+ d.innerHTML='<b>Full menu</b>'+g.map(c=>`<div style="margin-top:8px;font-weight:700">${esc(c.cat)}</div>`+c.items.map(i=>`<button class="mi" data-n="${esc(i.name)}" style="display:flex;justify-content:space-between;width:100%;text-align:left;border:1px solid #eee;background:#fff;border-radius:8px;padding:6px 8px;margin:3px 0;font:inherit;cursor:pointer"><span>${esc(i.name)}${i.desc?'<br><small>'+esc(i.desc)+'</small>':''}</span><span>${i.price==null?'<span class="warn">price not listed</span>':'$'+i.price.toFixed(2)}</span></button>`).join('')).join('');
+ d.querySelectorAll('.mi').forEach(b=>b.onclick=()=>send('1 '+b.dataset.n));log.append(d);log.scrollTop=1e9}
 function showSum(s){const d=document.createElement('div');d.className='sum';
  d.innerHTML='<b>Order summary (DEMO — not sent anywhere)</b><table>'+(s.lines.length?s.lines.map((l,i)=>`<tr><td>${i+1}. ${l.qty} × ${esc(l.name)}${l.toppings.length?'<br><small>'+esc(l.toppings.join(', '))+'</small>':''}${l.drink?'<br><small>Drink: '+esc(l.drink)+'</small>':''}${l.note?'<br><span class="warn">'+esc(l.note)+'</span>':''}</td><td>${l.total==null?'<span class="warn">price not listed</span>':'$'+l.total.toFixed(2)}</td></tr>`).join(''):'<tr><td>Cart is empty</td><td></td></tr>')
  +`<tr class="tot"><td>Total${s.incomplete?' (excl. unlisted prices)':''}</td><td>$${s.total.toFixed(2)}</td></tr></table><small>Prices from the public menu; tax not included. This is a demo — no order is placed.</small>`;log.append(d);log.scrollTop=1e9}
 async function send(msg,opts={}){if(!msg.trim())return;add(msg,'me');
  try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,cart,pending,history})});const j=await r.json();
  cart=j.cart;pending=j.pending;history.push({role:'user',content:msg},{role:'assistant',content:j.reply});
- document.getElementById('mode').textContent=j.mode==='ai'?'AI':'Basic mode';add(j.reply,'bot',j.chips);if(j.showSummary)showSum(j.summary);
+ if(j.mode==='ai'||j.mode==='fallback')document.getElementById('mode').textContent=j.mode==='ai'?'AI':'Basic mode';add(j.reply,'bot',j.chips);if(j.menuCard)showMenu(j.menuCard);if(j.showSummary)showSum(j.summary);
  }catch(e){add('Connection problem — please try again.','bot')}}
 document.getElementById('f').onsubmit=e=>{e.preventDefault();const t=document.getElementById('t');send(t.value);t.value=''};
 document.getElementById('cartBtn').onclick=()=>send('done');document.getElementById('menuBtn').onclick=()=>send('menu');

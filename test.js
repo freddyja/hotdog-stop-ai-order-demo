@@ -18,4 +18,8 @@ assert.ok(weak('OK.'));assert.ok(weak(''));assert.ok(!weak('Added your Chicago d
 assert.equal(inferPending('a chicago dog','Which toppings would you like?',[],null,false).item_id,'chicago_dog');
 assert.equal(addItem([], 'lobster').ok,false);assert.equal(addItem([], 'ny_dog',['pickle']).ok,false);
 assert.equal(summary((x=>{addItem(x,'italian_beef');return x})([])).incomplete,true);
-console.log('all tests passed');
+const h=require('./api/chat.js');const g=h._t.menuGroups();assert.equal(g.reduce((s,c)=>s+c.items.length,0),26);assert.deepEqual(g.map(c=>c.cat),['Hot Dogs','Combos','Extras','Drinks']);
+let got;h({method:'POST',headers:{},body:{message:'menu'}},{setHeader(){},status(){return this},json(j){got=j}}).then(()=>{assert.equal(got.mode,'menu');assert.equal(got.menuCard.length,4);
+assert.ok(h._t.fallback('1 Chicago Vienna Beef Hot Dog',[],null).pending.item_id==='chicago_dog');
+for(const i of g.flatMap(c=>c.items)){const c=[];const o=h._t.fallback('1 '+i.name,c,null);assert.equal((c[0]||o.pending||{}).item_id,i.id,'menu tap works: '+i.name)}
+console.log('all tests passed')});
