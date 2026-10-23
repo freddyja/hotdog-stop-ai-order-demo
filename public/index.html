@@ -15,15 +15,15 @@ header h1{font-size:19px;margin:0}header small{display:block;font-size:13px;opac
 .sum{background:#fff;border:2px solid #1a1a1a;border-radius:12px;padding:10px;margin:8px 0}.sum table{width:100%;border-collapse:collapse;font-size:15px}.sum td{padding:3px 0;vertical-align:top}.sum td:last-child{text-align:right;white-space:nowrap}
 .warn{color:#b00020;font-size:13px;font-weight:600}.tot{font-weight:800;border-top:2px solid #000}
 form{display:flex;box-sizing:border-box;width:100%;gap:8px;padding:10px;background:#fff;border-top:1px solid #ddd}form input{flex:1;min-width:0;width:100%;font-size:17px;padding:12px;border:2px solid #999;border-radius:24px}
-form button{font-size:17px;border:0;border-radius:24px;padding:0 16px;flex:none;white-space:nowrap;background:#c8102e;color:#fff;font-weight:700}#mic{background:#333}
+form button{font-size:17px;border:0;border-radius:24px;padding:0 16px;flex:none;white-space:nowrap;background:#c8102e;color:#fff;font-weight:700}#mic{background:#333;font-size:18px;padding:0 18px}#lis{margin:6px 0;padding:12px;border-radius:14px;background:#c8102e;color:#fff;font-size:20px;font-weight:700;text-align:center}#lis .pm{display:inline-block;animation:pm 1s ease-in-out infinite}@keyframes pm{50%{transform:scale(1.35)}}#mhint{margin:4px 0;padding:8px;border-radius:10px;background:#fff3cd;color:#5c4400;text-align:center}
 #bar{display:flex;gap:8px;padding:0 10px 8px;background:#fff}#bar button{flex:1;padding:9px;border-radius:10px;border:1px solid #999;background:#f5f5f5;font-size:15px}
 </style></head><body>
 <div class="demo">⚠️ DEMO — not affiliated with The Hot Dog Stop · not a real order · no payment</div>
 <header><img src="icon-192.png" alt=""><div><h1>The Hot Dog Stop</h1><small>AI ordering demo · Brooksville, FL</small></div><span id="mode">…</span></header>
 <div id="log"></div>
 <div id="bar"><button id="cartBtn">🧾 Order summary</button><button id="menuBtn">📋 Menu</button><button id="reset">↺ Start over</button><button id="spk" type="button" aria-pressed="true" title="Spoken replies on/off">🔊</button></div>
-<form id="f"><button type="button" id="mic" title="Speak" hidden>🎤</button><input id="t" placeholder="e.g. a Chicago dog" autocomplete="off"><button>Send</button></form>
-<script>const APP_VERSION="2026.10.23.1";
+<div id="lis" hidden><span class="pm">🎤</span> Listening… just say your answer</div><div id="mhint" hidden>Allow the microphone so you can just talk</div><form id="f"><button type="button" id="mic" title="Tap to talk" hidden>🎤 Tap to talk</button><input id="t" placeholder="e.g. a Chicago dog" autocomplete="off"><button>Send</button></form>
+<script>const APP_VERSION="2026.10.23.2";
 async function checkVer(){try{const r=await fetch('version.json',{cache:'no-store'});if(!r.ok)return;const v=(await r.json()).version;if(v&&v!==APP_VERSION){const k='hds_reload_'+v;if(sessionStorage.getItem(k))return;sessionStorage.setItem(k,'1');location.reload()}}catch(e){}}
 checkVer();document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkVer()});
 
@@ -35,19 +35,19 @@ function add(text,cls,chips){const d=document.createElement('div');d.className='
 function showMenu(g){const d=document.createElement('div');d.className='sum menu';
  d.innerHTML='<b>Full menu</b>'+g.map(c=>`<div style="margin-top:8px;font-weight:700">${esc(c.cat)}</div>`+c.items.map(i=>`<button class="mi" data-n="${esc(i.name)}" style="display:flex;justify-content:space-between;width:100%;text-align:left;border:1px solid #eee;background:#fff;border-radius:8px;padding:6px 8px;margin:3px 0;font:inherit;cursor:pointer"><span>${esc(i.name)}${i.desc?'<br><small>'+esc(i.desc)+'</small>':''}</span><span>${i.price==null?'<span class="warn">price not listed</span>':'$'+i.price.toFixed(2)}</span></button>`).join('')).join('');
  d.querySelectorAll('.mi').forEach(b=>b.onclick=()=>send('1 '+b.dataset.n));log.append(d);log.scrollTop=1e9}
-function showSum(s){const d=document.createElement('div');d.className='sum';
+function showSum(s){summaryDone=true;const d=document.createElement('div');d.className='sum';
  d.innerHTML='<b>Order summary (DEMO — not sent anywhere)</b><table>'+(s.lines.length?s.lines.map((l,i)=>`<tr><td>${i+1}. ${l.qty} × ${esc(l.name)}${l.toppings.length?'<br><small>'+esc(l.toppings.join(', '))+'</small>':''}${l.drink?'<br><small>Drink: '+esc(l.drink)+'</small>':''}${l.note?'<br><span class="warn">'+esc(l.note)+'</span>':''}</td><td>${l.total==null?'<span class="warn">price not listed</span>':'$'+l.total.toFixed(2)}</td></tr>`).join(''):'<tr><td>Cart is empty</td><td></td></tr>')
  +`<tr class="tot"><td>Total${s.incomplete?' (excl. unlisted prices)':''}</td><td>$${s.total.toFixed(2)}</td></tr></table><small>Prices from the public menu; tax not included. This is a demo — no order is placed.</small>`;log.append(d);log.scrollTop=1e9}
-async function send(msg,opts={}){if(!msg.trim())return;sentAny=true;add(msg,'me');
+async function send(msg,opts={}){if(!msg.trim())return;sentAny=true;summaryDone=false;add(msg,'me');
  try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,cart,pending,history})});const j=await r.json();
  cart=j.cart;pending=j.pending;history.push({role:'user',content:msg},{role:'assistant',content:j.reply});
  if(j.mode==='ai'||j.mode==='fallback')document.getElementById('mode').textContent=j.mode==='ai'?'AI':'Basic mode';add(j.reply,'bot',j.chips);if(j.menuCard)showMenu(j.menuCard);if(j.showSummary)showSum(j.summary);
- speak(j.menuCard?'Here is our full menu. Tap any item, or tell me what you would like.':(j.showSummary&&!/\$\d|dollar/i.test(j.reply)?j.reply+' Your total is $'+j.summary.total.toFixed(2)+'.':j.reply),opts.voice&&!j.showSummary&&listen?listen:null);
+ speak(j.menuCard?'Here is our full menu. Tap any item, or just tell me what you would like.':(j.showSummary&&!/\$\d|dollar/i.test(j.reply)?j.reply+' Your total is $'+j.summary.total.toFixed(2)+'.':j.reply),!j.showSummary&&(j.menuCard||/\?/.test(j.reply))?autoListen:null);
  }catch(e){add('Connection problem — please try again.','bot')}}
 document.getElementById('f').onsubmit=e=>{e.preventDefault();const t=document.getElementById('t');send(t.value);t.value=''};
 document.getElementById('cartBtn').onclick=()=>send('done');document.getElementById('menuBtn').onclick=()=>send('menu');
 document.getElementById('reset').onclick=()=>{cart=[];pending=null;history=[];log.innerHTML='';hello()};
-const WELCOME="Hi, welcome to The Hot Dog Stop! Tap Menu below to see everything we've got, then tap an item or just tell me what you'd like.";let sentAny=false;
+const WELCOME="Hi, welcome to The Hot Dog Stop! Tap Menu below to see everything we've got, then tap an item, or just tell me what you'd like.";let sentAny=false;
 function hello(){add(WELCOME+' (demo)','bot',['Menu','Chicago dog','New York dog','New York Special','Fries']);const b=document.querySelector('.chips button');if(b){b.classList.add('hot');b.addEventListener('click',()=>document.querySelectorAll('.hot').forEach(x=>x.classList.remove('hot')))}
  setTimeout(()=>{if(TTS&&ttsOn&&!sentAny){try{const u=new SpeechSynthesisUtterance(WELCOME);u.lang='en-US';if(voice)u.voice=voice;TTS.speak(u)}catch(e){}}},400)}
 hello();
@@ -56,7 +56,7 @@ const TTS=window.speechSynthesis||null;let ttsOn=localStorage.getItem('hds_tts')
 const spk=document.getElementById('spk');function paintSpk(){spk.textContent=ttsOn?'🔊':'🔇';spk.setAttribute('aria-pressed',ttsOn)}paintSpk();if(!TTS)spk.hidden=true;
 function pickVoice(){if(!TTS)return;const v=TTS.getVoices();voice=v.find(x=>x.lang==='en-US'&&/samantha|google us|aria|jenny/i.test(x.name))||v.find(x=>x.lang==='en-US')||v.find(x=>/^en/i.test(x.lang))||null}
 if(TTS){pickVoice();TTS.onvoiceschanged=pickVoice;if(TTS.addEventListener)TTS.addEventListener('voiceschanged',pickVoice)}
-function unlockTTS(){if(!TTS||ttsUnlocked)return;ttsUnlocked=true;try{const u=new SpeechSynthesisUtterance('');u.volume=0;TTS.speak(u)}catch(e){}setTimeout(()=>{if(!sentAny&&!TTS.speaking)speak(WELCOME)},60);}
+function unlockTTS(){if(!TTS||ttsUnlocked)return;ttsUnlocked=true;try{const u=new SpeechSynthesisUtterance('');u.volume=0;TTS.speak(u)}catch(e){}setTimeout(()=>{if(!sentAny&&!TTS.speaking)speak(WELCOME,autoListen)},60);}
 ['pointerdown','touchend','keydown','click'].forEach(ev=>document.addEventListener(ev,unlockTTS,{capture:true}));
 function speechText(t){return String(t).replace(/\+\s?\$/g,'plus $').replace(/\$(\d+)(?:\.(\d\d))?/g,(m,d,c)=>d+' dollar'+(d==='1'?'':'s')+(c&&c!=='00'?' '+(+c):''))
  .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu,'').replace(/[*_`#>~]/g,'').replace(/\s×\s/g,' ').replace(/\s+/g,' ').trim()}
@@ -66,9 +66,15 @@ function speak(text,after){if(!TTS||!ttsOn||!ttsUnlocked){after&&after();return}
 spk.onclick=()=>{ttsOn=!ttsOn;localStorage.setItem('hds_tts',ttsOn?'on':'off');paintSpk();if(!ttsOn&&TTS)TTS.cancel()};
 window.hdsSpeak=speak;window.hdsSpeechText=speechText;
 // ---- voice input + hands-free loop ----
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let listen=null;
-if(SR){const mic=document.getElementById('mic');mic.hidden=false;const rec=new SR();rec.lang='en-US';rec.interimResults=false;
- rec.onresult=e=>send(e.results[0][0].transcript,{voice:true});
- listen=()=>{try{rec.start()}catch(e){}};
- mic.onclick=()=>{if(TTS)TTS.cancel();listen()}}
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let listen=null,listening=false,summaryDone=false;
+function autoListen(){if(listen&&ttsOn&&!summaryDone)listen()}
+if(SR){const mic=document.getElementById('mic'),lis=document.getElementById('lis'),hint=document.getElementById('mhint');mic.hidden=false;const rec=new SR();rec.lang='en-US';rec.interimResults=false;
+ const ui=on=>{listening=on;lis.hidden=!on;mic.hidden=on};
+ rec.onstart=()=>{ui(true)};rec.onend=()=>{ui(false)};
+ rec.onerror=e=>{ui(false);if(e&&(e.error==='not-allowed'||e.error==='service-not-allowed'))hint.hidden=false};
+ rec.onresult=e=>{hint.hidden=true;send(e.results[0][0].transcript,{voice:true})};
+ listen=async()=>{if(listening)return;try{if(navigator.permissions){const p=await navigator.permissions.query({name:'microphone'});if(p.state==='prompt')hint.hidden=false;else if(p.state==='granted')hint.hidden=true}}catch(e){}
+  try{rec.start()}catch(e){}};
+ document.getElementById('t').addEventListener('focus',()=>{if(listening)try{rec.abort()}catch(e){}});
+ mic.onclick=()=>{if(TTS)TTS.cancel();summaryDone=false;listen()}}
 </script></body></html>
