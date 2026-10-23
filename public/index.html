@@ -39,7 +39,7 @@ async function send(msg,opts={}){if(!msg.trim())return;add(msg,'me');
  try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,cart,pending,history})});const j=await r.json();
  cart=j.cart;pending=j.pending;history.push({role:'user',content:msg},{role:'assistant',content:j.reply});
  if(j.mode==='ai'||j.mode==='fallback')document.getElementById('mode').textContent=j.mode==='ai'?'AI':'Basic mode';add(j.reply,'bot',j.chips);if(j.menuCard)showMenu(j.menuCard);if(j.showSummary)showSum(j.summary);
- speak(j.menuCard?'Here is our full menu. Tap any item, or tell me what you would like.':j.reply,opts.voice&&!j.showSummary&&listen?listen:null);
+ speak(j.menuCard?'Here is our full menu. Tap any item, or tell me what you would like.':(j.showSummary&&!/\$\d|dollar/i.test(j.reply)?j.reply+' Your total is $'+j.summary.total.toFixed(2)+'.':j.reply),opts.voice&&!j.showSummary&&listen?listen:null);
  }catch(e){add('Connection problem — please try again.','bot')}}
 document.getElementById('f').onsubmit=e=>{e.preventDefault();const t=document.getElementById('t');send(t.value);t.value=''};
 document.getElementById('cartBtn').onclick=()=>send('done');document.getElementById('menuBtn').onclick=()=>send('menu');

@@ -84,6 +84,8 @@ const ALIASES = [
   [/knish/, 'knish'], [/pizza/, 'pizza_puff'], [/tots/, 'tots'], [/fries/, 'fries'], [/pretzel/, 'pretzel'], [/curd/, 'curds'],
   [/tamale/, 'tamale'], [/yoo ?hoo/, 'yoohoo'], [/water/, 'water']
 ];
+const ELSE = ['Anything else I can get you?', 'Want to add fries or a drink?', 'What else can I get for you?', 'Would you like anything else, maybe a knish or cheese curds?', 'Can I get you anything else?', 'Anything else today? Just say "done" when you\'re set.', 'Want another dog, or are you all set?'];
+const anyElse = () => ELSE[Math.floor(Math.random() * ELSE.length)];
 const NUM = { one:1, a:1, an:1, two:2, three:3, four:4, five:5 };
 const DONE_RE = /\b(done|that'?s (all|it)|checkout|check out|summary|my (cart|order|total)|finish|nothing else|no(pe)?,? (thanks|that'?s)|i'?m good)\b/;
 const TOPWORD_RE = /(mustard|ketchup|catsup|chil(i|li|e)|cheese|relish|pickle|sport ?pepper|tomato|celery|onion)/;
@@ -95,7 +97,7 @@ function fallback(msg, cart, pending) {
   if (/^(menu|what do you have|options|help)/.test(m)) return { reply: menuText() + pendTail(), pending };
   if (/(remove|delete|cancel|take off)/.test(m)) {
     const n = parseInt((m.match(/\d+/) || [])[0]); const i = n ? n - 1 : cart.length - 1;
-    if (cart[i]) { const nm = byId[cart[i].item_id].name; cart.splice(i, 1); return { reply: `Removed ${nm}. Anything else?`, pending }; }
+    if (cart[i]) { const nm = byId[cart[i].item_id].name; cart.splice(i, 1); return { reply: `Removed ${nm}. ${anyElse()}`, pending }; }
     return { reply: 'There is nothing to remove yet. What can I get you?', pending };
   }
   if (DONE_RE.test(m)) {
@@ -109,13 +111,13 @@ function fallback(msg, cart, pending) {
   if (pending && !it && words) {
     const { ok, bad } = /(plain|no toppings|none|nothing on it)/.test(m) ? { ok: [], bad: [] } : checkTops(pending.item_id, splitTops(m));
     addItem(cart, pending.item_id, ok, pending.qty, pending.drink);
-    return { reply: `Added ${lineText(cart[cart.length - 1])}.${notListedMsg(pending.item_id, bad)} Anything else? Say "done" for the summary.`, pending: null };
+    return { reply: `Added ${lineText(cart[cart.length - 1])}.${notListedMsg(pending.item_id, bad)} ${anyElse()}`, pending: null };
   }
   // topping change for the last item already in the cart (e.g. "add mustard")
   if (!pending && !it && words && cart.length) {
     const l = cart[cart.length - 1]; const { ok, bad } = checkTops(l.item_id, splitTops(m));
     l.toppings = [...new Set([...l.toppings, ...ok])];
-    return { reply: `${ok.length ? 'Updated' : 'Your item is still'}: ${lineText(l)}.${notListedMsg(l.item_id, bad)} Anything else?`, pending: null };
+    return { reply: `${ok.length ? 'Updated' : 'Your item is still'}: ${lineText(l)}.${notListedMsg(l.item_id, bad)} ${anyElse()}`, pending: null };
   }
   if (!it) return { reply: `Sorry, I can only take items from The Hot Dog Stop's menu. Try "Chicago dog", "New York Special", "fries", or say "menu".${pendTail()}`, pending };
   const q = parseInt((m.match(/\b(\d+)\b/) || [])[1]) || NUM[(m.match(/\b(one|a|an|two|three|four|five)\b/) || [])[1]] || 1;
@@ -125,7 +127,7 @@ function fallback(msg, cart, pending) {
   const { ok: pre, bad } = /\b(with|w\/)\b/.test(m) ? checkTops(it.id, splitTops(rest)) : { ok: [], bad: [] };
   if (!allowed.length || pre.length || /plain/.test(m)) {
     const r = addItem(cart, it.id, pre, q, drink);
-    return { reply: r.ok ? `Added ${lineText(cart[cart.length - 1])}${it.price == null ? ' (price not listed on the menu)' : ''}.${notListedMsg(it.id, bad)} Anything else?${pendTail()}` : r.error, pending };
+    return { reply: r.ok ? `Added ${lineText(cart[cart.length - 1])}${it.price == null ? ' (price not listed on the menu)' : ''}.${notListedMsg(it.id, bad)} ${anyElse()}${pendTail()}` : r.error, pending };
   }
   // new item while another one is still waiting for toppings: keep the waiting one, add it plain
   let kept = '';
@@ -153,7 +155,7 @@ const TOOLS = [
 ];
 function sysPrompt(cart, pending) {
   return `You are a friendly order-taker for The Hot Dog Stop food truck (DEMO ONLY, not a real order, no payments). ONLY offer items in this menu JSON; never invent items, toppings or prices. If an item's price is null say "price not listed".
-FLOW: 1) When a customer picks a hot dog or combo without toppings, do NOT add it yet: list that item's toppings (extra-cost ones marked) and ask which they want. 2) When they reply with toppings (e.g. "mustard, sport peppers, onions"), IMMEDIATELY call add_item for the item you asked about with those toppings (pass their words; e.g. onions = raw onion on Chicago dogs, tomato = tomatoes). If they ordered the item with toppings up front, add it right away. 3) If the tool reports not_listed toppings, politely say those aren't listed for that item and name the valid options (do not invent them, do not change prices). 4) After every add, confirm the item and toppings and ask "Anything else?". 5) To change toppings on an item already in the cart, call update_toppings. 6) For combos ask drink (water or yoohoo). 7) When they say done / that's all / checkout, call show_cart and say the total.
+FLOW: 1) When a customer picks a hot dog or combo without toppings, do NOT add it yet: list that item's toppings (extra-cost ones marked) and ask which they want. 2) When they reply with toppings (e.g. "mustard, sport peppers, onions"), IMMEDIATELY call add_item for the item you asked about with those toppings (pass their words; e.g. onions = raw onion on Chicago dogs, tomato = tomatoes). If they ordered the item with toppings up front, add it right away. 3) If the tool reports not_listed toppings, politely say those aren't listed for that item and name the valid options (do not invent them, do not change prices). 4) After every add, warmly confirm the item and toppings, then ask if they want anything else — vary your wording every time (e.g. "Anything else I can get you?", "Want to add fries or a drink?", "Another dog, or are you all set?"), never repeat the same phrase twice in a row. Keep taking items and re-asking until they say they're done. Sound like a friendly person at the truck window, natural and conversational. 5) To change toppings on an item already in the cart, call update_toppings. 6) For combos ask drink (water or yoohoo). 7) When they say done / that's all / no thanks / I'm good, call show_cart and read back a short summary with the total (e.g. "That's one Chicago dog and fries, 12 dollars total.").
 ALWAYS answer with at least one full sentence; never reply with just "OK". Keep replies short (1-3 sentences), mobile friendly.
 MENU: ${JSON.stringify(MENU.items.map(({ id, name, price, toppings, drink }) => ({ id, name, price, toppings, drink })))}
 TOPPING SETS [id,name,extra$]: ${JSON.stringify(MENU.toppings)}
@@ -241,7 +243,7 @@ module.exports = async (req, res) => {
       if (weak(out.reply)) {
         const s = summary(cart);
         out.reply = out.showSummary ? `${out.notes.join(' ')} Here is your order summary: total $${s.total.toFixed(2)} (demo, not a real order).`.trim()
-          : out.notes.length ? `${out.notes.join(' ')} Anything else? Say "done" when you're finished.`
+          : out.notes.length ? `${out.notes.join(' ')} ${anyElse()}`
           : `Sorry, I didn't catch that. What would you like from The Hot Dog Stop menu? Say "menu" to see everything.`;
       } else if (out.notes.some(n => /listed for/.test(n)) && !/listed/i.test(out.reply)) out.reply += ' ' + out.notes.filter(n => /listed for/.test(n)).map(n => n.replace(/^.*?\.\s/, '')).join(' ');
     }
