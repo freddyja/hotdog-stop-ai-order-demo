@@ -100,7 +100,8 @@ function menuText() {
 
 // ---- AI mode via Vercel AI Gateway (OpenAI-compatible) ----
 const MODEL = process.env.AI_MODEL || 'google/gemini-2.5-flash-lite';
-function gwKey() { return process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || null; }
+// OIDC: Vercel injects a per-request token in the x-vercel-oidc-token header (no key needed).
+function gwKey(req) { return process.env.AI_GATEWAY_API_KEY || (req && req.headers && req.headers['x-vercel-oidc-token']) || process.env.VERCEL_OIDC_TOKEN || null; }
 const TOOLS = [
   { type: 'function', function: { name: 'add_item', description: 'Add a menu item to the cart', parameters: { type: 'object', properties: {
     item_id: { type: 'string', enum: MENU.items.map(i => i.id) }, toppings: { type: 'array', items: { type: 'string' } },
@@ -114,8 +115,8 @@ MENU: ${JSON.stringify(MENU.items.map(({ id, name, price, toppings, drink }) => 
 TOPPING SETS [id,name,extra$]: ${JSON.stringify(MENU.toppings)}
 CURRENT CART: ${JSON.stringify(summary(cart))}`;
 }
-async function ai(history, cart) {
-  const key = gwKey(); if (!key) throw new Error('no key');
+async function ai(history, cart, key) {
+  if (!key) key = gwKey(); if (!key) throw new Error('no key');
   const msgs = [{ role: 'system', content: sysPrompt(cart) }, ...history.slice(-12)];
   let showSummary = false;
   for (let step = 0; step < 4; step++) {
@@ -142,7 +143,7 @@ async function ai(history, cart) {
 module.exports = async (req, res) => {
   cors(req, res);
   if (req.method === 'OPTIONS') return res.status(204).end();
-  if (req.method === 'GET') return res.status(200).json({ menu: MENU, aiConfigured: !!gwKey(), model: MODEL });
+  if (req.method === 'GET') return res.status(200).json({ menu: MENU, aiConfigured: !!gwKey(req), auth: process.env.AI_GATEWAY_API_KEY ? 'key' : (gwKey(req) ? 'oidc' : 'none'), model: MODEL });
   let b = req.body; if (typeof b === 'string') try { b = JSON.parse(b); } catch { b = {}; }
   b = b || {};
   const message = String(b.message || '').slice(0, 500);
@@ -151,7 +152,7 @@ module.exports = async (req, res) => {
   let out, mode = 'ai', note;
   if (b.mode !== 'fallback') {
     const before = JSON.stringify(cart);
-    try { out = await ai([...history, { role: 'user', content: message }], cart); out.pending = null; }
+    try { out = await ai([...history, { role: 'user', content: message }], cart, gwKey(req)); out.pending = null; }
     catch (e) { note = String(e.message).slice(0, 120); cart.splice(0, cart.length, ...JSON.parse(before)); }
   }
   if (!out) { mode = 'fallback'; out = fallback(message, cart, b.pending && byId[b.pending.item_id] ? b.pending : null); }
