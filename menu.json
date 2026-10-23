@@ -1,0 +1,37 @@
+{
+ "source":"https://thehotdogstopfl.com/?page_id=402 (fetched 2026-10-23)",
+ "items":[
+  {"id":"chicago_dog","name":"Chicago Vienna Beef Hot Dog","price":6.00,"cat":"Hot Dogs","toppings":"chicago"},
+  {"id":"ny_dog","name":"New York Sabrett Hot Dog","price":5.00,"cat":"Hot Dogs","toppings":"ny"},
+  {"id":"kielbasa","name":"Smoked Polish Kielbasa","price":9.00,"cat":"Hot Dogs","toppings":"ny"},
+  {"id":"nathan","name":"Nathan Jumbo","price":7.00,"cat":"Hot Dogs","toppings":"ny"},
+  {"id":"italian_sausage","name":"Italian Sausage","price":9.00,"cat":"Hot Dogs","toppings":"ny"},
+  {"id":"italian_beef","name":"Italian Beef Sandwich (single)","price":null,"cat":"Hot Dogs","note":"price not listed (only sold as a combo on the site)"},
+  {"id":"combo_ny","name":"New York Special","price":9.00,"cat":"Combos","desc":"1 Sabrett beef dog, Dog House fries and drink","toppings":"ny","drink":true},
+  {"id":"combo_ny2","name":"New York Special 2","price":14.00,"cat":"Combos","desc":"2 Sabrett hot dogs, Dog House fries and drink","toppings":"ny","drink":true},
+  {"id":"combo_chi","name":"Chicago Special","price":10.00,"cat":"Combos","desc":"Chicago Vienna hot dog, fries and drink","toppings":"chicago","drink":true},
+  {"id":"combo_chi2","name":"Chicago Special 2","price":15.00,"cat":"Combos","desc":"2 Chicago Vienna beef hot dogs, fries and drink","toppings":"chicago","drink":true},
+  {"id":"combo_kiel","name":"Smoked Polish Kielbasa Special","price":16.00,"cat":"Combos","desc":"Kielbasa, fries and drink","toppings":"ny","drink":true},
+  {"id":"combo_kiel2","name":"Smoked Polish Kielbasa 2","price":22.00,"cat":"Combos","desc":"2 kielbasa, fries and drink","toppings":"ny","drink":true},
+  {"id":"combo_nathan","name":"Nathan Jumbo Combo","price":11.00,"cat":"Combos","desc":"Nathan Jumbo, fries and drink","toppings":"ny","drink":true},
+  {"id":"combo_nathan2","name":"Nathan Jumbo 2","price":17.00,"cat":"Combos","desc":"2 Nathan Jumbo, fries and drinks","toppings":"ny","drink":true},
+  {"id":"combo_beef","name":"Italian Beef Sandwich Combo","price":16.00,"cat":"Combos","desc":"Italian beef sandwich, fries and drink","toppings":"none","drink":true},
+  {"id":"combo_sausage","name":"Italian Sausage Sandwich Combo","price":16.00,"cat":"Combos","desc":"Italian sausage sandwich, fries and drink","toppings":"ny","drink":true},
+  {"id":"knish","name":"Gabila's Knish","price":5.00,"cat":"Extras"},
+  {"id":"pizza_puff","name":"Pizza Puff","price":5.00,"cat":"Extras"},
+  {"id":"fries","name":"Dog House Fries","price":6.00,"cat":"Extras"},
+  {"id":"pretzel","name":"Pretzel","price":5.00,"cat":"Extras"},
+  {"id":"tots","name":"Jumbo Tots (bacon & cheese)","price":8.00,"cat":"Extras"},
+  {"id":"curds","name":"Cheese Curds","price":5.00,"cat":"Extras"},
+  {"id":"tamale","name":"Supreme Tamale","price":3.50,"cat":"Extras"},
+  {"id":"corn_dog","name":"Corn Dog","price":5.00,"cat":"Extras"},
+  {"id":"water","name":"Water","price":2.00,"cat":"Drinks"},
+  {"id":"yoohoo","name":"YooHoo","price":2.00,"cat":"Drinks"}
+ ],
+ "toppings":{
+  "ny":[["mustard","Mustard",0],["ketchup","Ketchup",0],["red_onions","Cooked red onions",0],["chili","Chili",2],["cheese","Cheese",2],["peppers_onions","Peppers & sautéed onions",2]],
+  "chicago":[["relish","Relish",0],["raw_onion","Raw onion",0],["pickle","Pickle",0],["sport_peppers","Sport peppers",0],["tomatoes","Tomatoes",0],["celery_salt","Celery salt",0],["cheese","Cheese",2],["chili","Chili",2],["peppers_onions","Peppers & sautéed onions",2]],
+  "none":[]
+ },
+ "drinks":["water","yoohoo"]
+}

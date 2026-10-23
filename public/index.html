@@ -1,0 +1,47 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow"><title>Hot Dog Stop – AI Ordering DEMO</title>
+<link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png"><link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#c8102e">
+<style>
+*{box-sizing:border-box}body{margin:0;font:17px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#fff8ec;color:#1a1a1a;display:flex;flex-direction:column;height:100dvh}
+.demo{background:#111;color:#ffd400;text-align:center;font-weight:700;font-size:14px;padding:6px 10px}
+header{background:#c8102e;color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px}header img{width:40px;height:40px;border-radius:10px}
+header h1{font-size:19px;margin:0}header small{display:block;font-size:13px;opacity:.95}
+#mode{margin-left:auto;font-size:12px;background:#fff;color:#c8102e;border-radius:12px;padding:3px 8px;font-weight:700}
+#log{flex:1;overflow:auto;padding:12px}.m{max-width:85%;padding:10px 13px;border-radius:16px;margin:6px 0;white-space:pre-wrap}
+.bot{background:#fff;border:1px solid #f0d9b5}.me{background:#c8102e;color:#fff;margin-left:auto}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}.chips button{border:2px solid #c8102e;background:#fff;color:#c8102e;border-radius:18px;padding:6px 12px;font-size:15px}
+.sum{background:#fff;border:2px solid #1a1a1a;border-radius:12px;padding:10px;margin:8px 0}.sum table{width:100%;border-collapse:collapse;font-size:15px}.sum td{padding:3px 0;vertical-align:top}.sum td:last-child{text-align:right;white-space:nowrap}
+.warn{color:#b00020;font-size:13px;font-weight:600}.tot{font-weight:800;border-top:2px solid #000}
+form{display:flex;gap:8px;padding:10px;background:#fff;border-top:1px solid #ddd}form input{flex:1;font-size:17px;padding:12px;border:2px solid #999;border-radius:24px}
+form button{font-size:17px;border:0;border-radius:24px;padding:0 16px;background:#c8102e;color:#fff;font-weight:700}#mic{background:#333}
+#bar{display:flex;gap:8px;padding:0 10px 8px;background:#fff}#bar button{flex:1;padding:9px;border-radius:10px;border:1px solid #999;background:#f5f5f5;font-size:15px}
+</style></head><body>
+<div class="demo">⚠️ DEMO — not affiliated with The Hot Dog Stop · not a real order · no payment</div>
+<header><img src="icon-192.png" alt=""><div><h1>The Hot Dog Stop</h1><small>AI ordering demo · Brooksville, FL</small></div><span id="mode">…</span></header>
+<div id="log"></div>
+<div id="bar"><button id="cartBtn">🧾 Order summary</button><button id="menuBtn">📋 Menu</button><button id="reset">↺ Start over</button></div>
+<form id="f"><button type="button" id="mic" title="Speak" hidden>🎤</button><input id="t" placeholder="e.g. a Chicago dog" autocomplete="off"><button>Send</button></form>
+<script>
+const API=(location.hostname.endsWith('vercel.app')||location.hostname==='localhost')?'api/chat':'https://hotdog-stop-ai-order-demo.vercel.app/api/chat';
+let cart=[],pending=null,history=[];const log=document.getElementById('log');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function add(text,cls,chips){const d=document.createElement('div');d.className='m '+cls;d.textContent=text;log.append(d);
+ if(chips){const c=document.createElement('div');c.className='chips';chips.forEach(x=>{const b=document.createElement('button');b.textContent=x;b.onclick=()=>send(x);c.append(b)});log.append(c)}log.scrollTop=1e9}
+function showSum(s){const d=document.createElement('div');d.className='sum';
+ d.innerHTML='<b>Order summary (DEMO — not sent anywhere)</b><table>'+(s.lines.length?s.lines.map((l,i)=>`<tr><td>${i+1}. ${l.qty} × ${esc(l.name)}${l.toppings.length?'<br><small>'+esc(l.toppings.join(', '))+'</small>':''}${l.drink?'<br><small>Drink: '+esc(l.drink)+'</small>':''}${l.note?'<br><span class="warn">'+esc(l.note)+'</span>':''}</td><td>${l.total==null?'<span class="warn">price not listed</span>':'$'+l.total.toFixed(2)}</td></tr>`).join(''):'<tr><td>Cart is empty</td><td></td></tr>')
+ +`<tr class="tot"><td>Total${s.incomplete?' (excl. unlisted prices)':''}</td><td>$${s.total.toFixed(2)}</td></tr></table><small>Prices from the public menu; tax not included. This is a demo — no order is placed.</small>`;log.append(d);log.scrollTop=1e9}
+async function send(msg,opts={}){if(!msg.trim())return;add(msg,'me');
+ try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,cart,pending,history})});const j=await r.json();
+ cart=j.cart;pending=j.pending;history.push({role:'user',content:msg},{role:'assistant',content:j.reply});
+ document.getElementById('mode').textContent=j.mode==='ai'?'AI':'Basic mode';add(j.reply,'bot',j.chips);if(j.showSummary)showSum(j.summary);
+ }catch(e){add('Connection problem — please try again.','bot')}}
+document.getElementById('f').onsubmit=e=>{e.preventDefault();const t=document.getElementById('t');send(t.value);t.value=''};
+document.getElementById('cartBtn').onclick=()=>send('done');document.getElementById('menuBtn').onclick=()=>send('menu');
+document.getElementById('reset').onclick=()=>{cart=[];pending=null;history=[];log.innerHTML='';hello()};
+function hello(){add("Hi! Welcome to The Hot Dog Stop 🌭 (demo). What can I get you? Try a Chicago dog, a New York Sabrett dog, or a combo special.",'bot',['Chicago dog','New York dog','New York Special','Fries','Menu'])}
+hello();
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(SR){const mic=document.getElementById('mic');mic.hidden=false;const rec=new SR();rec.lang='en-US';
+ rec.onresult=e=>send(e.results[0][0].transcript);mic.onclick=()=>{try{rec.start()}catch(e){}}}
+</script></body></html>
